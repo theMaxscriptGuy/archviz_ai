@@ -1,0 +1,89 @@
+from __future__ import annotations
+
+import json
+from dataclasses import dataclass
+from typing import Any, Optional
+
+import requests
+
+
+@dataclass
+class GeminiResponse:
+    images_b64: list[str]
+    raw: dict[str, Any]
+
+
+class GeminiClient:
+    """Small client wrapper.
+
+    We keep this minimal because Gemini model names/endpoints evolve.
+
+    Supports:
+    - REST call using `requests`
+    - Optional SDK usage if `google-genai` is installed (future extension)
+
+    IMPORTANT:
+    You may need to adjust the endpoint and payload format to match your Gemini API.
+    This file is the single place to do it.
+    """
+
+    def __init__(self, *, api_key: str, endpoint: str | None = None, timeout_s: int = 120):
+        self.api_key = api_key
+        self.endpoint = endpoint or "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+        self.timeout_s = timeout_s
+
+    def generate_image_rest(
+        self,
+        *,
+        model: str,
+        prompt: str,
+        inline_files: list[dict[str, str]] | None = None,
+    ) -> GeminiResponse:
+        """Attempts a REST call.
+
+        `inline_files` items are expected like:
+        {"mime_type": "application/pdf", "data_b64": "..."}
+
+        NOTE: The exact schema for multimodal inputs and image generation output can differ.
+        We return both parsed images (if found) and the raw response for debugging.
+        """
+
+        url = self.endpoint.format(model=model)
+        headers = {"Content-Type": "application/json"}
+        params = {"key": self.api_key}
+
+        parts: list[dict[str, Any]] = [{"text": prompt}]
+        for f in inline_files or []:
+            parts.append(
+                {
+                    "inline_data": {
+                        "mime_type": f["mime_type"],
+                        "data": f["data_b64"],
+                    }
+                }
+            )
+
+        payload = {
+            "contents": [{"parts": parts}],
+        }
+
+        r = requests.post(url, headers=headers, params=params, data=json.dumps(payload), timeout=self.timeout_s)
+        r.raise_for_status()
+        data = r.json()
+
+        images: list[str] = []
+        # Best-effort parsing: look for inline_data with image mime types.
+        candidates = (data.get("candidates") or [])
+        for c in candidates:
+            content = (c.get("content") or {})
+            for p in content.get("parts") or []:
+                inline = p.get("inline_data") or p.get("inlineData")
+                if not inline:
+                    continue
+                mime = inline.get("mime_type") or inline.get("mimeType") or ""
+                if mime.startswith("image/"):
+                    b64 = inline.get("data")
+                    if b64:
+                        images.append(b64)
+
+        return GeminiResponse(images_b64=images, raw=data)

@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "archviz-desktop-tool"
+version = "0.1.0"
+description = "PyQt desktop tool to collect arch-viz inputs and generate consistent renders via Gemini (Flash 2.5 or latest)."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Videep Mishraa" }]
+
+dependencies = [
+  "PyQt6>=6.6",
+  "pydantic>=2.6",
+  "requests>=2.31",
+]
+
+[project.optional-dependencies]
+gemini = [
+  "google-genai>=0.6.0",
+]
+
+[project.scripts]
+archviz-tool = "archviz_app.main:main"
+
+[tool.setuptools]
+package-dir = {"" = "."}
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["archviz_app*"]
