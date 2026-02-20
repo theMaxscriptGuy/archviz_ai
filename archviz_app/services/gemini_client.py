@@ -88,13 +88,15 @@ class GeminiClient:
                 return self._generate_image_rest(model=model, prompt=prompt, inline_files=inline_files)
 
         # Ask for image modality.
+        # In google-genai, models are often addressed as "models/<id>".
+        model_sdk = model if model.startswith("models/") else f"models/{model}"
         try:
             from google.genai import types  # type: ignore
 
             cfg = types.GenerateContentConfig(response_modalities=["IMAGE", "TEXT"])
-            resp = client.models.generate_content(model=model, contents=contents, config=cfg)
+            resp = client.models.generate_content(model=model_sdk, contents=contents, config=cfg)
         except Exception:
-            resp = client.models.generate_content(model=model, contents=contents)
+            resp = client.models.generate_content(model=model_sdk, contents=contents)
 
         raw = _to_raw_dict(resp)
         images = _extract_images_b64(raw)
