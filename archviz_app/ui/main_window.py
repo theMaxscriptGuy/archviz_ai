@@ -156,6 +156,13 @@ class MainWindow(QWidget):
         self.generate_btn.setEnabled(True)
         files = getattr(result, "written_files", [])
         self._append_log(f"Done. Wrote {len(files)} file(s).")
+        if len(files) == 0:
+            self._append_log(
+                "No images were returned by the model. "
+                "This usually means the selected Gemini model does not support image output for this endpoint/key. "
+                "Click 'List available models' and choose a different model. "
+                "Also check the *_debug.json files in the output folder for the raw API response."
+            )
         if files:
             self._append_log("Sample outputs:")
             for p in files[:5]:

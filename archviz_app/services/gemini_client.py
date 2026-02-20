@@ -86,18 +86,23 @@ class GeminiClient:
         data = r.json()
 
         images: list[str] = []
-        # Best-effort parsing: look for inline_data with image mime types.
-        candidates = (data.get("candidates") or [])
-        for c in candidates:
-            content = (c.get("content") or {})
-            for p in content.get("parts") or []:
-                inline = p.get("inline_data") or p.get("inlineData")
-                if not inline:
-                    continue
-                mime = inline.get("mime_type") or inline.get("mimeType") or ""
-                if mime.startswith("image/"):
+
+        def walk(node: Any) -> None:
+            if isinstance(node, dict):
+                # Gemini variants
+                inline = node.get("inline_data") or node.get("inlineData")
+                if isinstance(inline, dict):
+                    mime = inline.get("mime_type") or inline.get("mimeType") or ""
                     b64 = inline.get("data")
-                    if b64:
+                    if isinstance(mime, str) and mime.startswith("image/") and isinstance(b64, str) and b64:
                         images.append(b64)
 
+                # Recurse
+                for v in node.values():
+                    walk(v)
+            elif isinstance(node, list):
+                for it in node:
+                    walk(it)
+
+        walk(data)
         return GeminiResponse(images_b64=images, raw=data)

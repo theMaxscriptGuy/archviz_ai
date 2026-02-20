@@ -47,6 +47,8 @@ class RenderService:
                 prompt=prompt + "\n\nEXTERIOR FINISH NOTES:\n" + job.exterior.finishes.notes,
                 inline_files=_inline_files(ext_files),
             )
+            if not resp.images_b64:
+                _write_debug(resp.raw, self.output_dir / "exterior", f"{angle.name}_debug.json")
             written += _write_images(resp.images_b64, self.output_dir / "exterior", angle.name)
 
         # Interior rooms
@@ -65,13 +67,23 @@ class RenderService:
                     prompt=prompt + "\n\nROOM FINISH NOTES:\n" + room.finishes.notes,
                     inline_files=_inline_files(room_files),
                 )
-                written += _write_images(resp.images_b64, self.output_dir / "interior" / _safe(room.room_name), angle.name)
+                out_room = self.output_dir / "interior" / _safe(room.room_name)
+                if not resp.images_b64:
+                    _write_debug(resp.raw, out_room, f"{angle.name}_debug.json")
+                written += _write_images(resp.images_b64, out_room, angle.name)
 
         return RenderOutput(output_dir=self.output_dir, written_files=written)
 
 
 def _safe(s: str) -> str:
     return "".join(ch if ch.isalnum() or ch in {"-", "_"} else "_" for ch in s).strip("_") or "room"
+
+
+def _write_debug(raw: dict, out_dir: Path, filename: str) -> None:
+    import json
+
+    out_dir.mkdir(parents=True, exist_ok=True)
+    (out_dir / filename).write_text(json.dumps(raw, indent=2), encoding="utf-8")
 
 
 def _write_images(images_b64: list[str], out_dir: Path, stem: str) -> list[Path]:
