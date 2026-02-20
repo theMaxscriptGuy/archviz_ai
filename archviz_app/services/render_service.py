@@ -46,6 +46,7 @@ class RenderService:
                 model=job.model_name,
                 prompt=prompt + "\n\nEXTERIOR FINISH NOTES:\n" + job.exterior.finishes.notes,
                 inline_files=_inline_files(ext_files),
+                fallback_imagen_model="imagen-4.0-generate-001",
             )
             if not resp.images_b64:
                 _write_debug(resp.raw, self.output_dir / "exterior", f"{angle.name}_debug.json")
@@ -66,6 +67,7 @@ class RenderService:
                     model=job.model_name,
                     prompt=prompt + "\n\nROOM FINISH NOTES:\n" + room.finishes.notes,
                     inline_files=_inline_files(room_files),
+                    fallback_imagen_model="imagen-4.0-generate-001",
                 )
                 out_room = self.output_dir / "interior" / _safe(room.room_name)
                 if not resp.images_b64:

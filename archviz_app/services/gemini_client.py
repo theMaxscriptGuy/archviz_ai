@@ -47,11 +47,20 @@ class GeminiClient:
         model: str,
         prompt: str,
         inline_files: list[dict[str, str]] | None = None,
+        fallback_imagen_model: str | None = "imagen-4.0-generate-001",
     ) -> GeminiResponse:
-        """Generate image(s) using SDK if available, else REST."""
+        """Generate image(s) using SDK if available, else REST.
+
+        If Gemini returns no images (common with some keys/models), optionally falls back
+        to Imagen via the google-genai SDK.
+        """
 
         try:
-            return self._generate_image_sdk(model=model, prompt=prompt, inline_files=inline_files)
+            resp = self._generate_image_sdk(model=model, prompt=prompt, inline_files=inline_files)
+            if resp.images_b64 or not fallback_imagen_model:
+                return resp
+            # Fallback: Imagen (prompt-only)
+            return self._generate_image_imagen_sdk(model=fallback_imagen_model, prompt=prompt)
         except ModuleNotFoundError:
             # SDK not installed
             return self._generate_image_rest(model=model, prompt=prompt, inline_files=inline_files)
@@ -132,6 +141,28 @@ class GeminiClient:
         raw = _to_raw_dict(resp)
         if not images_b64:
             images_b64 = _extract_images_b64(raw)
+        return GeminiResponse(images_b64=images_b64, raw=raw)
+
+    def _generate_image_imagen_sdk(self, *, model: str, prompt: str) -> GeminiResponse:
+        """Generate images using Imagen models (SDK).
+
+        This is a prompt-only fallback. It does not currently pass reference images.
+        """
+
+        from google import genai  # type: ignore
+        from google.genai import types  # type: ignore
+
+        client = genai.Client(api_key=self.api_key)
+        model_sdk = model if model.startswith("models/") else f"models/{model}"
+
+        cfg = types.GenerateImagesConfig(number_of_images=1)
+        resp = client.models.generate_images(model=model_sdk, prompt=prompt, config=cfg)
+
+        raw = _to_raw_dict(resp)
+
+        images_b64: list[str] = []
+        # Best-effort: Imagen responses vary; walk for image bytes/base64.
+        images_b64 = _extract_images_b64(raw)
         return GeminiResponse(images_b64=images_b64, raw=raw)
 
     def _generate_image_rest(
