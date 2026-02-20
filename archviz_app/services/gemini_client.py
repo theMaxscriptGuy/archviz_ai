@@ -32,6 +32,13 @@ class GeminiClient:
         self.endpoint = endpoint or "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
         self.timeout_s = timeout_s
 
+    def list_models_rest(self) -> dict[str, Any]:
+        """List models available for the current API key."""
+        url = "https://generativelanguage.googleapis.com/v1beta/models"
+        r = requests.get(url, params={"key": self.api_key}, timeout=self.timeout_s)
+        r.raise_for_status()
+        return r.json()
+
     def generate_image_rest(
         self,
         *,
@@ -68,6 +75,13 @@ class GeminiClient:
         }
 
         r = requests.post(url, headers=headers, params=params, data=json.dumps(payload), timeout=self.timeout_s)
+        if r.status_code == 404:
+            raise RuntimeError(
+                "Gemini returned 404 (model not found or endpoint not supported). "
+                "Fix by choosing a model name that exists for your API key. "
+                "Try the app button 'List available models' or call: "
+                "https://generativelanguage.googleapis.com/v1beta/models?key=YOUR_KEY"
+            )
         r.raise_for_status()
         data = r.json()
 

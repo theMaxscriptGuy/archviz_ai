@@ -49,4 +49,7 @@ class RenderJob(BaseModel):
     exterior: ExteriorInputs = Field(default_factory=ExteriorInputs)
     interior: InteriorInputs = Field(default_factory=InteriorInputs)
 
-    model_name: str = "gemini-2.5-flash-image-preview"
+    # IMPORTANT: Must be a model that exists for *your* Gemini API key.
+    # You can list available models via the app (Tools → List models) or by calling:
+    #   GET https://generativelanguage.googleapis.com/v1beta/models?key=YOUR_KEY
+    model_name: str = "gemini-1.5-flash"

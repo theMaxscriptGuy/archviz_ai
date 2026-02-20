@@ -33,7 +33,7 @@ class MainWindow(QWidget):
             "Gemini model name",
             placeholder="gemini-2.5-flash-image-preview",
         )
-        self.model_name.set_value("gemini-2.5-flash-image-preview")
+        self.model_name.set_value("gemini-1.5-flash")
 
         self.api_key = LabeledLineEdit("Gemini API key", placeholder="Paste API key…", echo_password=True)
         self.endpoint = LabeledLineEdit(
@@ -55,6 +55,9 @@ class MainWindow(QWidget):
         self.generate_btn = QPushButton("Generate renders")
         self.generate_btn.clicked.connect(self.on_generate)
 
+        self.list_models_btn = QPushButton("List available models")
+        self.list_models_btn.clicked.connect(self.on_list_models)
+
         self.log = QTextEdit()
         self.log.setReadOnly(True)
 
@@ -71,7 +74,12 @@ class MainWindow(QWidget):
         layout.addLayout(keys)
         layout.addWidget(self.style_notes)
         layout.addWidget(self.tabs)
-        layout.addWidget(self.generate_btn)
+        btn_row = QHBoxLayout()
+        btn_row.addWidget(self.generate_btn)
+        btn_row.addWidget(self.list_models_btn)
+        btn_row.addStretch(1)
+
+        layout.addLayout(btn_row)
         layout.addWidget(self.log)
         self.setLayout(layout)
 
@@ -115,6 +123,34 @@ class MainWindow(QWidget):
         self._worker.signals.finished.connect(self._on_done)
         self._worker.signals.error.connect(self._on_error)
         self._worker.start()
+
+    def on_list_models(self) -> None:
+        api_key = self.api_key.value()
+        if not api_key:
+            QMessageBox.warning(self, "Missing API key", "Please paste your Gemini API key first.")
+            return
+
+        client = GeminiClient(api_key=api_key, endpoint=self.endpoint.value() or None)
+        self._append_log("Fetching available models…")
+
+        def run():
+            return client.list_models_rest()
+
+        self.list_models_btn.setEnabled(False)
+        self._worker = Worker(run)
+        self._worker.signals.finished.connect(self._on_models)
+        self._worker.signals.error.connect(self._on_error)
+        self._worker.start()
+
+    def _on_models(self, data) -> None:
+        self.list_models_btn.setEnabled(True)
+        models = data.get("models") or []
+        self._append_log(f"Found {len(models)} model(s). Showing up to 25:")
+        for m in models[:25]:
+            name = m.get("name", "")
+            display = m.get("displayName", "")
+            self._append_log(f"- {name} ({display})")
+        QMessageBox.information(self, "Models", f"Found {len(models)} model(s). See log for list.")
 
     def _on_done(self, result) -> None:
         self.generate_btn.setEnabled(True)
