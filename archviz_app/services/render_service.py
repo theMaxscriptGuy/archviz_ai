@@ -80,10 +80,17 @@ def _safe(s: str) -> str:
 
 
 def _write_debug(raw: dict, out_dir: Path, filename: str) -> None:
+    import base64
     import json
 
+    def default(o):
+        # The SDK may include raw bytes (e.g., image bytes) in the response dump.
+        if isinstance(o, (bytes, bytearray)):
+            return {"__type__": "bytes", "base64": base64.b64encode(bytes(o)).decode("utf-8")}
+        return str(o)
+
     out_dir.mkdir(parents=True, exist_ok=True)
-    (out_dir / filename).write_text(json.dumps(raw, indent=2), encoding="utf-8")
+    (out_dir / filename).write_text(json.dumps(raw, indent=2, default=default), encoding="utf-8")
 
 
 def _write_images(images_b64: list[str], out_dir: Path, stem: str) -> list[Path]:
