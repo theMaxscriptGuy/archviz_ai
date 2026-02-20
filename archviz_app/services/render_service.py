@@ -42,7 +42,7 @@ class RenderService:
                 angle_name=angle.name,
                 angle_desc=angle.description,
             )
-            resp = self.gemini.generate_image_rest(
+            resp = self.gemini.generate_image(
                 model=job.model_name,
                 prompt=prompt + "\n\nEXTERIOR FINISH NOTES:\n" + job.exterior.finishes.notes,
                 inline_files=_inline_files(ext_files),
@@ -62,7 +62,7 @@ class RenderService:
                     angle_name=angle.name,
                     angle_desc=angle.description,
                 )
-                resp = self.gemini.generate_image_rest(
+                resp = self.gemini.generate_image(
                     model=job.model_name,
                     prompt=prompt + "\n\nROOM FINISH NOTES:\n" + room.finishes.notes,
                     inline_files=_inline_files(room_files),

@@ -19,7 +19,7 @@ dependencies = [
 
 [project.optional-dependencies]
 gemini = [
-  "google-genai>=0.6.0",
+  "google-genai>=0.8.0",
 ]
 
 [project.scripts]
