@@ -75,14 +75,26 @@ class GeminiClient:
         # Build contents: prompt + inline parts
         contents: list[Any] = [prompt]
 
-        # Best-effort: attach as bytes. SDK types have changed across versions,
-        # so we keep it permissive.
+        # Attach references.
+        # For images, the SDK supports passing PIL.Image objects directly (most reliable).
+        # For PDFs/other docs, attach bytes parts.
         for f in inline_files or []:
+            mime = f.get("mime_type", "")
+            b = _b64decode(f["data_b64"])
+            if isinstance(mime, str) and mime.startswith("image/"):
+                try:
+                    from PIL import Image  # type: ignore
+                    from io import BytesIO
+
+                    contents.append(Image.open(BytesIO(b)))
+                    continue
+                except Exception:
+                    # Fall back to bytes part
+                    pass
             try:
                 from google.genai import types  # type: ignore
 
-                b = _b64decode(f["data_b64"])
-                contents.append(types.Part.from_bytes(data=b, mime_type=f["mime_type"]))
+                contents.append(types.Part.from_bytes(data=b, mime_type=mime))
             except Exception:
                 # If types API isn't available, fall back to REST.
                 return self._generate_image_rest(model=model, prompt=prompt, inline_files=inline_files)
@@ -98,9 +110,29 @@ class GeminiClient:
         except Exception:
             resp = client.models.generate_content(model=model_sdk, contents=contents)
 
+        # Prefer extracting from the typed response object first (it may contain bytes).
+        images_b64: list[str] = []
+        try:
+            for cand in getattr(resp, "candidates", []) or []:
+                content = getattr(cand, "content", None)
+                parts = getattr(content, "parts", []) if content is not None else []
+                for part in parts or []:
+                    inline = getattr(part, "inline_data", None)
+                    if inline is None:
+                        continue
+                    data_bytes = getattr(inline, "data", None)
+                    mime = getattr(inline, "mime_type", "") or "image/png"
+                    if data_bytes:
+                        import base64
+
+                        images_b64.append(base64.b64encode(data_bytes).decode("utf-8"))
+        except Exception:
+            pass
+
         raw = _to_raw_dict(resp)
-        images = _extract_images_b64(raw)
-        return GeminiResponse(images_b64=images, raw=raw)
+        if not images_b64:
+            images_b64 = _extract_images_b64(raw)
+        return GeminiResponse(images_b64=images_b64, raw=raw)
 
     def _generate_image_rest(
         self,

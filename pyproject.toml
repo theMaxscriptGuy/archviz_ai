@@ -15,6 +15,7 @@ dependencies = [
   "PyQt6>=6.6",
   "pydantic>=2.6",
   "requests>=2.31",
+  "Pillow>=10.0",
 ]
 
 [project.optional-dependencies]
