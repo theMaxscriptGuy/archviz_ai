@@ -55,6 +55,9 @@ class MainWindow(QWidget):
         self.generate_btn = QPushButton("Generate renders")
         self.generate_btn.clicked.connect(self.on_generate)
 
+        self.generate_prompt_btn = QPushButton("Generate image from prompt")
+        self.generate_prompt_btn.clicked.connect(self.on_generate_from_prompt)
+
         self.list_models_btn = QPushButton("List available models")
         self.list_models_btn.clicked.connect(self.on_list_models)
 
@@ -76,6 +79,7 @@ class MainWindow(QWidget):
         layout.addWidget(self.tabs)
         btn_row = QHBoxLayout()
         btn_row.addWidget(self.generate_btn)
+        btn_row.addWidget(self.generate_prompt_btn)
         btn_row.addWidget(self.list_models_btn)
         btn_row.addStretch(1)
 
@@ -123,6 +127,69 @@ class MainWindow(QWidget):
         self._worker.signals.finished.connect(self._on_done)
         self._worker.signals.error.connect(self._on_error)
         self._worker.start()
+
+    def on_generate_from_prompt(self) -> None:
+        """Small test action: send a prompt and attempt to generate one image."""
+        import base64
+        import datetime as dt
+        import os
+
+        api_key = self.api_key.value()
+        if not api_key:
+            QMessageBox.warning(self, "Missing API key", "Please paste your Gemini API key.")
+            return
+
+        prompt = self.style_notes.value().strip()
+        if not prompt:
+            QMessageBox.warning(self, "Missing prompt", "Use 'Global consistency notes' as the prompt (cannot be empty).")
+            return
+
+        # Set env var for google-genai parity with your reference code.
+        # (We do NOT echo it to logs.)
+        os.environ["GEMINI_API_KEY"] = api_key
+
+        ts = dt.datetime.now().strftime("%Y%m%d_%H%M%S")
+        out_dir = Path(__file__).resolve().parents[2] / "output" / ts / "prompt_test"
+        out_dir.mkdir(parents=True, exist_ok=True)
+
+        client = GeminiClient(api_key=api_key, endpoint=self.endpoint.value() or None)
+        model = self.model_name.value() or "gemini-2.5-flash-image-preview"
+
+        self.generate_prompt_btn.setEnabled(False)
+        self._append_log(f"Prompt-test: generating 1 image… output -> {out_dir}")
+
+        def run():
+            return client.generate_image(model=model, prompt=prompt, inline_files=None)
+
+        self._worker = Worker(run)
+        self._worker.signals.finished.connect(lambda resp: self._on_prompt_done(resp, out_dir))
+        self._worker.signals.error.connect(self._on_error)
+        self._worker.start()
+
+    def _on_prompt_done(self, resp, out_dir: Path) -> None:
+        import base64
+
+        self.generate_prompt_btn.setEnabled(True)
+        if not getattr(resp, "images_b64", None):
+            self._append_log("Prompt-test: no images returned. See debug JSON in output folder.")
+            # Save raw
+            try:
+                from archviz_app.services.render_service import _write_debug  # type: ignore
+
+                _write_debug(resp.raw, out_dir, "prompt_test_debug.json")
+            except Exception:
+                pass
+            QMessageBox.information(self, "No image", "No image returned. Check output debug JSON.")
+            return
+
+        written = 0
+        for i, b64 in enumerate(resp.images_b64[:1], start=1):
+            p = out_dir / f"prompt_test_{i}.png"
+            p.write_bytes(base64.b64decode(b64))
+            written += 1
+
+        self._append_log(f"Prompt-test: wrote {written} image(s).")
+        QMessageBox.information(self, "Done", f"Prompt-test complete. Wrote {written} image(s).")
 
     def on_list_models(self) -> None:
         api_key = self.api_key.value()
