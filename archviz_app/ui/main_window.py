@@ -31,9 +31,9 @@ class MainWindow(QWidget):
         self.project_name = LabeledLineEdit("Project name", placeholder="e.g., Lakeview Villa")
         self.model_name = LabeledLineEdit(
             "Gemini model name",
-            placeholder="gemini-2.5-flash-image-preview",
+            placeholder="gemini-2.5-flash-image",
         )
-        self.model_name.set_value("gemini-1.5-flash")
+        self.model_name.set_value("gemini-2.5-flash-image")
 
         self.api_key = LabeledLineEdit("Gemini API key", placeholder="Paste API key…", echo_password=True)
         self.endpoint = LabeledLineEdit(
@@ -153,7 +153,7 @@ class MainWindow(QWidget):
         out_dir.mkdir(parents=True, exist_ok=True)
 
         client = GeminiClient(api_key=api_key, endpoint=self.endpoint.value() or None)
-        model = self.model_name.value() or "gemini-2.5-flash-image-preview"
+        model = self.model_name.value() or "gemini-2.5-flash-image"
 
         self.generate_prompt_btn.setEnabled(False)
         self._append_log(f"Prompt-test: generating 1 image… output -> {out_dir}")

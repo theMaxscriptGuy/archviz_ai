@@ -107,7 +107,7 @@ This project provides a clean integration point in:
 Because Gemini endpoints and model names evolve, the client is designed to be easy to update.
 
 ### Model name
-Default is set to `gemini-2.5-flash-image-preview` (update in UI or config if needed).
+Default is set to `gemini-2.5-flash-image` (update in UI or config if needed).
 
 ---
 

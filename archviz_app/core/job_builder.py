@@ -50,5 +50,5 @@ def build_render_job(
         style_consistency_notes=style_notes or "",
         exterior=exterior,
         interior=InteriorInputs(rooms=interior_rooms),
-        model_name=model_name or "gemini-2.5-flash-image-preview",
+        model_name=model_name or "gemini-2.5-flash-image",
     )
